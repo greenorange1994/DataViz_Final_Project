@@ -1,0 +1,950 @@
+---
+title: "Do Expensive Restaurants Really Provide More Delicious Food?"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: yeti
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(plyr)
+library(dplyr)
+library(rgdal)
+library(ggplot2)
+library(ggmap)
+library(tmap)
+library(readr)
+library(tidyr)
+library(sp)
+library(geosphere)
+library(rgeos)
+library(readxl)
+library(ggthemes)
+library(plotly)
+library(tm)
+library(quanteda)
+library(qdap) 
+library(qdapDictionaries)
+library(tidytext)
+library(wordcloud)
+library(tidyverse)
+library(base)
+library(leaflet)
+
+pit_rest <- read.csv("pit_restaurants.csv")[, -1]
+pit_rest$price <- as.factor(pit_rest$price)
+pit_rest$stars <- as.factor(pit_rest$stars)
+pit_rest$cuisine <- as.factor(pit_rest$cuisine)
+pit_rest$parking <- as.factor(pit_rest$parking)
+pit_rest$parking <- gsub('arage', 'garage', pit_rest$parking)
+
+p1 <- plot_ly(pit_rest) %>%
+  add_trace(y = ~stars, type = "box", color = ~price,
+            name = "ratings", marker = list(symbol = "circle")) %>%
+  add_annotations(text = "Price Ratings", xref="paper", yref="paper",
+                  x=1.005, xanchor="left", y=0.7, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow = FALSE) %>%
+  layout(title = "<b>Ratings of Restaurants with Different Price Levels in Pittsburgh</b>", 
+         yaxis = list(title = "Rating (0 to 5 Stars)"),
+         xaxis= list(title = "Price Levels (1 to 4 dollar-signs)"),
+         legend=list(y=0.7, yanchor="top"))
+
+p2 <- plot_ly(pit_rest) %>%
+  add_trace(y = ~price, type = "box", color = ~parking,
+            name = "parking", marker = list(symbol = "circle")) %>%
+  add_annotations(text = "Parking Options", xref="paper", yref="paper",
+                  x=1.02, xanchor="left", y=0.6, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow = FALSE) %>%
+  layout(title = "<b>Parking Options of Restaurants with Different Price Levels</b>", 
+         yaxis = list(title = "Price Levels (1 to 4 dollar-signs)"),
+         xaxis= list(title = "Parking Options"),
+         legend=list(y=0.6, yanchor="top"))
+
+y <- c('1',
+       '2',
+       '3',
+       '4')
+x1 <- c(20.4, 15.1, 19.6, 25.0)
+x2 <- c(47.6, 60.9, 59.8, 41.7)
+x3 <- c(8.3, 8.1, 3.1, 8.3)
+x4 <- c(2.2, 2.4, 3.1, 0.0)
+
+data <- data.frame(y, x1, x2, x3, x4)
+
+top_labels <- c('Quiet', 'Average', 'Loud', 'Very Loud')
+
+p3 <- plot_ly(data, x = ~x1, y = ~y, name = "Quiet", type = 'bar', orientation = 'h',
+        marker = list(color = 'rgba(38, 24, 74, 0.8)',
+                      line = list(color = 'rgb(248, 248, 249)', width = 1))) %>%
+  add_trace(x = ~x2, name = "Average", marker = list(color = 'rgba(71, 58, 131, 0.8)')) %>%
+  add_trace(x = ~x3, name = "Loud", marker = list(color = 'rgba(122, 120, 168, 0.8)')) %>%
+  add_trace(x = ~x4, name = "Very_loud", marker = list(color = 'rgba(164, 163, 204, 0.85)')) %>%
+  layout(title = "<b>Noise Level of Restaurants with Different Price Levels</b>",
+        font = list(size = 12),
+        xaxis = list(title = "",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE,
+                      domain = c(0.15, 1)),
+         yaxis = list(title = "Price Levels (1 to 4 dollar-signs)",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE),
+         barmode = 'stack',
+         paper_bgcolor = 'rgb(248, 248, 255)', plot_bgcolor = 'rgb(248, 248, 255)',
+         margin = list(l = 50, r = 0, t = 160, b = 80),
+         showlegend = FALSE) %>%
+  # labeling the y-axis
+  add_annotations(xref = 'paper', yref = 'y', x = 0.14, y = y,
+                  xanchor = 'right',
+                  text = y,
+                  font = list(family = 'Arial', size = 12,
+                            color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE, align = 'right') %>%
+  # labeling the percentages of each bar (x_axis)
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 / 2, y = y,
+                  text = paste(data[,"x1"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                            color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 + x2 / 2, y = y,
+                  text = paste(data[,"x2"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 + x2 + x3 / 2, y = y,
+                  text = paste(data[,"x3"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 + x2 + x3 + x4 / 2, y = y,
+                  text = paste(data[,"x4"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'paper',
+                  x = c(23 / 2, 23 + 40 / 2, 23 + 38 + 21 / 2, 23 + 35 + 25 + 1 / 2),
+                  y = 1.15,
+                  text = top_labels,
+                  font = list(family = 'Arial', size = 15,
+                              color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE)
+
+pit_neighbour <- readOGR(dsn = "map/Pittsburgh_Neighborhoods.geojson", layer = "OGRGeoJSON")
+stop <- readOGR("map/paacstops1611/.", "PAAC_Stops_1611")
+route <- readOGR("map/paacroutes1611/.", "PAAC_Routes_1611")
+
+## Crime Level
+crime <- read_excel("Crime_Pittsburgh.xlsx")
+crime <- plyr::rename(crime, c("Crimes per 100 persons" = "Crimes_per_100_persons", "Pittsburgh neighborhoods" = "Neighborhoods"))
+pit_neighbour@data <- plyr::rename(pit_neighbour@data, c("hood" = "Neighborhoods"))
+crime$Safety_Level <- "Missing"
+crime$Safety_Level[0 <= crime$Crimes_per_100_persons & crime$Crimes_per_100_persons <= 3] <- "Very Safe"
+crime$Safety_Level[3 < crime$Crimes_per_100_persons & crime$Crimes_per_100_persons <= 6] <- "Safe"
+crime$Safety_Level[6 < crime$Crimes_per_100_persons & crime$Crimes_per_100_persons <= 9] <- "Medium"
+crime$Safety_Level[9 < crime$Crimes_per_100_persons & crime$Crimes_per_100_persons <= 25] <- "Dangerous"
+crime$Safety_Level[20 < crime$Crimes_per_100_persons] <- "Very Dangerous"
+crime$Neighborhoods[45] <- "Glen Hazel"
+crime[91, ] <- crime[45, ]
+crime$Neighborhoods[91] <- "Hazelwood"
+crime$Neighborhoods[37] <- "Arlington Heights"
+crime$Neighborhoods[48] <- "St. Clair"
+crime$Neighborhoods[46] <- "Mount Washington"
+crime[92, ] <- crime[46, ]
+crime$Neighborhoods[92] <- "South Shore"
+crime$Neighborhoods[53] <- "Duquesne Heights"
+crime$Neighborhoods[75] <- "Crafton Heights"
+crime$Neighborhoods[69] <- "Brighton Heights"
+crime$Neighborhoods[49] <- "Northview Heights"
+crime$Neighborhoods[33] <- "Spring Hill-City View"
+crime$Neighborhoods[25] <- "California-Kirkbride"
+crime$Neighborhoods[15] <- "Central Northside"
+crime$Neighborhoods[82] <- "Troy Hill"
+crime$Neighborhoods[84] <- "Stanton Heights"
+
+lonlat <- pit_rest[, c("longitude", "latitude", "price", "stars","business_id")]
+restaurant_lonlat <- pit_rest
+coordinates(restaurant_lonlat) <- ~ longitude + latitude
+proj4string(restaurant_lonlat) <- proj4string(pit_neighbour)
+lonlat2 <- over(restaurant_lonlat, pit_neighbour)
+pit_rest$Neighborhoods <- lonlat2$Neighborhoods
+pit_rest$price <- as.numeric(pit_rest$price)
+
+## Merge
+merge <- merge(pit_neighbour, crime, by = "Neighborhoods")
+nei <- merge(pit_rest, crime, by = "Neighborhoods")
+nei <- na.omit(nei)
+
+list1 <- levels(factor(nei$price))
+rep0 <-rep(0,length(list1))
+count_safe <- data.frame(list1, Very_Safe = rep0, Safe = rep0, Medium = rep0, Dangerous = rep0,  Very_Dangerous = rep0)
+df<-nei
+len<-length(df$business_id)
+for (i in 1:len){
+  pri<-df$price[i]
+  if(df$Safety_Level[i]=='Very Safe'){
+    count_safe[pri,2]=count_safe[pri,2]+1}
+  if(df$Safety_Level[i]=='Safe'){
+    count_safe[pri,3]=count_safe[pri,3]+1}
+  if(df$Safety_Level[i]=='Medium'){
+    count_safe[pri,4]=count_safe[pri,4]+1}
+  if(df$Safety_Level[i]=='Dangerous'){
+    count_safe[pri,5]=count_safe[pri,5]+1}
+  if(df$Safety_Level[i]=='Very Dangerous'){
+    count_safe[pri,6]=count_safe[pri,6]+1}
+}
+count <- plyr::rename(count_safe, c("list1" = "price"))
+
+# Grab a palette
+pal = colorFactor("Set1", domain = nei$price)
+color_price <- pal(nei$price)
+
+# Set color of points
+content <- paste("Neighbourhood:",nei$Neighborhoods,"<br/>",
+                 "Price Level:",nei$price,"<br/>",
+                 "Rating:",nei$stars)               
+
+m2 <- leaflet(nei) %>% 
+  addTiles('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png') %>%
+  setView(-80.0079238,40.4403418, zoom = 12) %>% 
+  addCircleMarkers(color=color_price, 
+                   popup = content,
+                   clusterOptions = markerClusterOptions())
+
+lightrail_stop <- stop@data[which(stop@data$Mode == "Light Rail"), ]
+lightrail_stop_map <- stop[which(stop$Mode == "Light Rail"), ]
+lightrail_route <- route[which(route$Mode == "Light Rail"), ]
+lightrail_CBD1 <- subset(lightrail_stop, Name == "WOOD STREET STATION")
+lightrail_CBD2 <- subset(lightrail_stop, Name == "FIRST AVENUE STATION")
+lightrail_CBD3 <- subset(lightrail_stop, Name == "STEEL PLAZA STATION")
+lightrail_CBD4 <- subset(lightrail_stop, Name == "GATEWAY STATION")
+lightrail_CBD <- rbind(lightrail_CBD1, lightrail_CBD2, lightrail_CBD3, lightrail_CBD4)
+
+# Light Rail Map
+restaurant_point <- pit_rest
+coordinates(restaurant_point) <- ~ longitude + latitude
+proj4string(restaurant_point) <- proj4string(pit_neighbour)
+lightrail_route@data <- plyr::rename(lightrail_route@data, c("Route_Name" = "Route"))
+map_lightrail <- tm_shape(pit_neighbour) +
+  tm_borders() +
+  tm_fill("Neighborhoods", title = "Neighborhood", style="pretty") +
+  tm_text("Neighborhoods", col = "brown", size=.6, shadow=TRUE, bg.color="white", bg.alpha=.8, remove.overlap=TRUE) +
+  tm_shape(lightrail_route) +
+  tm_lines(col=c("darkblue"), lwd=3, lty = "solid", scale = 2, alpha = 0.5) +
+  tm_shape(restaurant_point) +
+  tm_dots(size = 0.02, col = "blue", alpha = 0.6) +
+  tm_shape(lightrail_stop_map) +
+  tm_dots(size = 0.15, col = "red") +
+  tm_legend(legend.show = FALSE) +
+  tm_compass(position=c(0.85,0.09), type="8star", size=1, show.label=2) +
+  tm_style_white() +
+  tm_layout("Pittsburgh Lightrail Map with Restaurant Locations", fontface = "bold", outer.margins=0, asp=0, scale=.8)
+
+restaurant_CBD <- filter(pit_rest, neighborhood == "Downtown")
+coordinates(restaurant_CBD) <- ~ longitude + latitude
+proj4string(restaurant_CBD) <- proj4string(pit_neighbour)
+lightrail_CBD_stop <- lightrail_CBD[, c(6, 5, 2)]
+names(lightrail_CBD_stop) <- c("longitude", "latitude", "stop_names")
+coordinates(lightrail_CBD_stop) <- ~ longitude + latitude
+proj4string(lightrail_CBD_stop) <- proj4string(pit_neighbour)
+restaurant_sub <- over(lightrail_CBD_stop, pit_neighbour)
+
+# Choose the neighbourhood "Morningside Heights", there are two subway stations inside this neighbourhood, which are 116 St & Columbia University and 125 St
+lightrail_CBD_stop <- stop[c(6949, 6991, 6951, 7000), ]
+
+# Subsetting
+CBD <- pit_neighbour$Neighborhoods == "Central Business District"
+CBD_neigh <- pit_neighbour[CBD, ]
+proj4string(CBD_neigh) <- proj4string(pit_neighbour)
+
+lightrail_CBD_stop <- spTransform(lightrail_CBD_stop, CRS("+proj=longlat +datum=WGS84"))
+distance <- distm(lightrail_CBD_stop@coords, restaurant_CBD@coords, fun = distHaversine)
+distance <- as.data.frame(distance)
+row.names(distance) <- c("FIRST AVENUE", "STEEL PLAZA", "GATEWAY", "WOOD STREET")
+minimum <- apply(distance, 2, FUN = min)
+find_min <- data.frame()
+for (i in 1:length(minimum)){
+  find_min[i,1] = row.names(distance)[which.min(distance[,i])]
+  find_min[i,2] = minimum[i]
+}
+names(find_min) <- c("nearest_stop", "min_distance")
+find_min$price <- as.factor(restaurant_CBD@data$price)
+find_min$stars <- restaurant_CBD@data$stars
+
+buffer <- as.data.frame(cbind(restaurant_CBD@coords, find_min),
+                        stringsAsFactors = FALSE)
+buffer <- filter(buffer, buffer$nearest_stop == "WOOD STREET" & buffer$min_distance <= 250)
+coordinates(buffer) <- ~ longitude + latitude
+proj4string(buffer) <- proj4string(pit_neighbour)
+cu1 <- lightrail_CBD_stop[4,]
+cu1$Name <- "WOOD STREET STATION"
+p6 <- tm_shape(pit_neighbour[CBD, ]) + 
+  tm_borders(col = "black", lwd = 2) +
+  tm_shape(cu1) + tm_dots(col="darkblue", size=0.5) + 
+  tm_text("Name", size=0.8, just=c(0.4, -0.5))
+
+buffer2 <- spTransform(
+  cu1, 
+  CRS(" +init=epsg:2262 +zone=18 +ellps=WGS84 +datum=WGS84 +units=m +no_defs +towgs84=0,0,0")) 
+buffer150 <- gBuffer(spgeom = buffer2, width = 150)
+buffer250 <- gBuffer(spgeom = buffer2, width = 250)
+p6 <- p6 + tm_shape(buffer150) + tm_borders(col="red") +
+  tm_shape(buffer250) + tm_borders(col="rosybrown") + 
+  tm_shape(lightrail_route) + 
+  tm_lines(color = "Route", scale=3, legend.lwd.show = FALSE) +
+  tm_legend(legend.show = FALSE) +
+  tm_shape(buffer) +
+  tm_dots(size = 0.2, col = "brown", alpha = 0.8) +
+  tm_layout("Restaurants within Buffers in Central Business District", fontface = "bold", title.size = 1.1, outer.margins=0, asp=0, scale=.8)
+
+# Second Buffer
+buffer3 <- as.data.frame(cbind(restaurant_CBD@coords, find_min),
+                         stringsAsFactors = FALSE)
+buffer3 <- filter(buffer3, buffer3$nearest_stop == "GATEWAY" & buffer3$min_distance <= 250)
+coordinates(buffer3) <- ~ longitude + latitude
+proj4string(buffer3) <- proj4string(pit_neighbour)
+cu2 <- lightrail_CBD_stop[3,]
+cu2$Name <- "GATEWAY STATION"
+p6 <- p6 + tm_shape(pit_neighbour[CBD, ]) + 
+  tm_borders(col = "black", lwd = 2) +
+  tm_shape(cu2) + tm_dots(col="darkblue", size=0.5) + 
+  tm_text("Name", size=0.8, just=c(0.4, -0.5))
+
+buffer4 <- spTransform(
+  cu2, 
+  CRS(" +init=epsg:2262 +zone=18 +ellps=WGS84 +datum=WGS84 +units=m +no_defs +towgs84=0,0,0")) 
+buffer150_2 <- gBuffer(spgeom = buffer4, width = 150)
+buffer250_2 <- gBuffer(spgeom = buffer4, width = 250)
+p6 <- p6 + tm_shape(buffer150_2) + tm_borders(col="red") +
+  tm_shape(buffer250_2) + tm_borders(col="rosybrown") + 
+  tm_shape(lightrail_route) + 
+  tm_lines(color = "Route", scale=3, legend.lwd.show = FALSE) +
+  tm_legend(legend.show = FALSE) +
+  tm_shape(buffer3) +
+  tm_dots(size = 0.2, col = "brown", alpha = 0.8)
+
+# Third Buffer
+buffer5 <- as.data.frame(cbind(restaurant_CBD@coords, find_min),
+                         stringsAsFactors = FALSE)
+buffer5 <- filter(buffer5, buffer5$nearest_stop == "STEEL PLAZA" & buffer5$min_distance <= 250)
+coordinates(buffer5) <- ~ longitude + latitude
+proj4string(buffer5) <- proj4string(pit_neighbour)
+cu3 <- lightrail_CBD_stop[2,]
+cu3$Name <- "STEEL PLAZA STATION"
+p6 <- p6 + tm_shape(pit_neighbour[CBD, ]) + 
+  tm_borders(col = "black", lwd = 2) +
+  tm_shape(cu3) + tm_dots(col="darkblue", size=0.5) + 
+  tm_text("Name", size=0.8, just=c(0.4, -0.5))
+
+buffer6 <- spTransform(
+  cu3, 
+  CRS(" +init=epsg:2262 +zone=18 +ellps=WGS84 +datum=WGS84 +units=m +no_defs +towgs84=0,0,0")) 
+buffer150_3 <- gBuffer(spgeom = buffer6, width = 150)
+buffer250_3 <- gBuffer(spgeom = buffer6, width = 250)
+p6 <- p6 + tm_shape(buffer150_3) + tm_borders(col="red") +
+  tm_shape(buffer250_3) + tm_borders(col="rosybrown") + 
+  tm_shape(lightrail_route) + 
+  tm_lines(color = "Route", scale=3, legend.lwd.show = FALSE) +
+  tm_legend(legend.show = FALSE) +
+  tm_shape(buffer5) +
+  tm_dots(size = 0.2, col = "brown", alpha = 0.8)
+
+# Final Buffer
+buffer7 <- as.data.frame(cbind(restaurant_CBD@coords, find_min),
+                         stringsAsFactors = FALSE)
+buffer7 <- filter(buffer7, buffer7$nearest_stop == "FIRST AVENUE" & buffer7$min_distance <= 250)
+coordinates(buffer7) <- ~ longitude + latitude
+proj4string(buffer7) <- proj4string(pit_neighbour)
+cu4 <- lightrail_CBD_stop[1,]
+cu4$Name <- "FIRST AVENUE STATION"
+p6 <- p6 + tm_shape(pit_neighbour[CBD, ]) + 
+  tm_borders(col = "black", lwd = 2) +
+  tm_shape(cu4) + tm_dots(col="darkblue", size=0.5) + 
+  tm_text("Name", size=0.8, just=c(0.4, -0.5))
+
+buffer8 <- spTransform(
+  cu4, 
+  CRS(" +init=epsg:2262 +zone=18 +ellps=WGS84 +datum=WGS84 +units=m +no_defs +towgs84=0,0,0")) 
+buffer150_4 <- gBuffer(spgeom = buffer8, width = 150)
+buffer250_4 <- gBuffer(spgeom = buffer8, width = 250)
+p6 <- p6 + tm_shape(buffer150_4) + tm_borders(col="red") +
+  tm_shape(buffer250_4) + tm_borders(col="rosybrown") + 
+  tm_shape(lightrail_route) + 
+  tm_lines(color = "Route", scale=3, legend.lwd.show = FALSE) +
+  tm_legend(legend.show = FALSE) +
+  tm_shape(buffer7) +
+  tm_dots(size = 0.2, col = "brown", alpha = 0.8)
+
+buffer9 <- as.data.frame(cbind(restaurant_CBD@coords, find_min),
+                         stringsAsFactors = FALSE)
+dfbuf1 <- buffer9[-which(buffer9$nearest_stop == "WOOD STREET" & buffer9$min_distance <= 250), ]
+dfbuf1 <- dfbuf1[-which(dfbuf1$nearest_stop == "GATEWAY" & dfbuf1$min_distance <= 250), ]
+dfbuf1 <- dfbuf1[-which(dfbuf1$nearest_stop == "STEEL PLAZA" & dfbuf1$min_distance <= 250), ]
+dfbuf1 <- dfbuf1[-which(dfbuf1$nearest_stop == "FIRST AVENUE" & dfbuf1$min_distance <= 250), ]
+
+coordinates(dfbuf1) <- ~ longitude + latitude
+proj4string(dfbuf1) <- proj4string(pit_neighbour)
+
+p6 <- p6+ tm_shape(pit_neighbour[CBD, ]) + 
+  tm_borders(col = "black", lwd = 2) +
+  tm_shape(dfbuf1) +
+  tm_dots(size = 0.2, col = "darkseagreen4", alpha = 0.8) +
+  tm_credits("red point: restaurants inside buffers", fontface = "bold", col = "brown") +
+  tm_credits("green point: restaurants outside buffers", fontface = "bold", col = "darkseagreen4")
+
+p4 <- plot_ly(find_min) %>%
+  add_trace(y = ~min_distance, type = "box", color = ~price,
+            name = "price-level", marker = list(symbol = "circle")) %>%
+  add_annotations(text = "Price Levels", xref="paper", yref="paper",
+                  x=1.015, xanchor="left", y=0.7, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow = FALSE) %>%
+  layout(title = "<b>Minimun Distance to Subway Stations of Restaurants </br> with Different Price Levels in CBD</b>", 
+         font = list(size = 11),
+         yaxis = list(title = "Minimun Distance to Subway Stations (meters)"),
+         xaxis= list(title = "Price Levels (1 to 4 dollar-signs)"),
+         legend=list(y=0.7, yanchor="top"))
+
+m = leaflet(merge) %>% 
+  addProviderTiles("Stamen.TonerLite") %>%
+  addPolygons(group="Homicide",
+              stroke = TRUE, color = "black", weight = 1, fillOpacity = 0.5, smoothFactor = 0.5, 
+              fillColor = ~colorNumeric(palette = "Reds", Homicide)(Homicide),
+              popup = paste("Neighborhood:", merge@data$Neighborhoods,"<br/>",
+                            "Homicide:", merge@data$Homicide, "<br/>",
+                            "Robbery:", merge@data$Robbery, "<br/>",
+                            "Burglary:", merge@data$Burglary, "<br/>", 
+                            "Theft:", merge@data$Theft, "<br/>",
+                            "Crimes per 100 persons:", merge@data$Crimes_per_100_persons)) %>%
+  addPolygons(group="Robbery",
+              stroke = TRUE, color = "black", weight = 1, fillOpacity = 0.5, smoothFactor = 0.5, 
+              fillColor = ~colorNumeric(palette = "Reds", Robbery)(Robbery),
+              popup = paste("Neighborhood:", merge@data$Neighborhoods,"<br/>",
+                            "Homicide:", merge@data$Homicide, "<br/>",
+                            "Robbery:", merge@data$Robbery, "<br/>",
+                            "Burglary:", merge@data$Burglary, "<br/>", 
+                            "Theft:", merge@data$Theft, "<br/>",
+                            "Crimes per 100 persons:", merge@data$Crimes_per_100_persons)) %>%
+  addPolygons(group="Burglary",
+              stroke = TRUE, color = "black", weight = 1, fillOpacity = 0.5, smoothFactor = 0.5, 
+              fillColor = ~colorNumeric(palette = "Reds", Burglary)(Burglary),
+              popup = paste("Neighborhood:", merge@data$Neighborhoods,"<br/>",
+                            "Homicide:", merge@data$Homicide, "<br/>",
+                            "Robbery:", merge@data$Robbery, "<br/>",
+                            "Burglary:", merge@data$Burglary, "<br/>", 
+                            "Theft:", merge@data$Theft, "<br/>",
+                            "Crimes per 100 persons:", merge@data$Crimes_per_100_persons)) %>%
+  addPolygons(group="Theft",
+              stroke = TRUE, color = "black", weight = 1, fillOpacity = 0.5, smoothFactor = 0.5, 
+              fillColor = ~colorNumeric(palette = "Reds", Theft)(Theft),
+              popup = paste("Neighborhood:", merge@data$Neighborhoods,"<br/>",
+                            "Homicide:", merge@data$Homicide, "<br/>",
+                            "Robbery:", merge@data$Robbery, "<br/>",
+                            "Burglary:", merge@data$Burglary, "<br/>", 
+                            "Theft:", merge@data$Theft, "<br/>",
+                            "Crimes per 100 persons:", merge@data$Crimes_per_100_persons)) %>%
+  addPolygons(group = "Crimes per 100 persons",
+              stroke = TRUE, color = "black",  weight = 1, fillOpacity = 0.5, smoothFactor = 0.5, 
+              fillColor = ~colorNumeric(palette = "Reds", Crimes_per_100_persons)(Crimes_per_100_persons),
+              popup = paste("Neighborhood:", merge@data$Neighborhoods,"<br/>",
+                            "Homicide:", merge@data$Homicide, "<br/>",
+                            "Robbery:", merge@data$Robbery, "<br/>",
+                            "Burglary:", merge@data$Burglary, "<br/>", 
+                            "Theft:", merge@data$Theft, "<br/>",
+                            "Crimes per 100 persons:", merge@data$Crimes_per_100_persons)) %>% 
+  addLegend("bottomright", 
+            pal = colorNumeric(palette = "Reds", merge@data$Crimes_per_100_persons), 
+            values = ~Crimes_per_100_persons,
+            title = "Number of Crimes<br/>in Neighborhoods", opacity = 0.7) %>%
+  addLayersControl(overlayGroups = c("Homicide","Robbery", "Burglary", "Theft", "Crimes per 100 persons"),
+                   options = layersControlOptions(collapsed = FALSE) ) %>%
+  addCircleMarkers(data=restaurant_point, weight=0, radius=1.6, fillOpacity=0.6,
+                   popup=~paste("Price:", price,"<br>",
+                                "Stars:", stars))
+
+count_safe <- readRDS("count_safe")
+
+y <- c('1',
+       '2',
+       '3',
+       '4')
+x1 <- c(28.69, 26.19, 19.44, 27.27)
+x2 <- c(20.62, 25.70, 18.06, 18.18)
+x3 <- c(50.69, 48.11, 62.50, 54.55)
+data <- data.frame(y, x1, x2, x3)
+top_labels <- c('Safe', 'Medium', 'Dangerous')
+p5 <- plot_ly(data, x = ~x1, y = ~y, name = "Safe", type = 'bar', orientation = 'h',
+        marker = list(color = 'rgba(38, 24, 74, 0.8)',
+                      line = list(color = 'rgb(248, 248, 249)', width = 1))) %>%
+  add_trace(x = ~x2, name = "Medium", marker = list(color = 'rgba(71, 58, 131, 0.8)')) %>%
+  add_trace(x = ~x3, name = "Dangerous", marker = list(color = 'rgba(122, 120, 168, 0.8)')) %>%
+  layout(title = "<b>Safety Level of Locations of Restaurants with Different Price Levels</b>",
+        font = list(size = 12),
+        xaxis = list(title = "",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE,
+                      domain = c(0.15, 1)),
+         yaxis = list(title = "Price Levels (1 to 4 dollar-signs)",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE),
+         barmode = 'stack',
+         paper_bgcolor = 'rgb(248, 248, 255)', plot_bgcolor = 'rgb(248, 248, 255)',
+         margin = list(l = 50, r = 0, t = 160, b = 80),
+         showlegend = FALSE) %>% 
+  add_annotations(xref = 'paper', yref = 'y', x = 0.14, y = y,
+                  xanchor = 'right',
+                  text = y,
+                  font = list(family = 'Arial', size = 12,
+                            color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE, align = 'right') %>%
+  # labeling the percentages of each bar (x_axis)
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 / 2, y = y,
+                  text = paste(data[,"x1"], '%'),
+                  font = list(family = 'Arial', size = 12,color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 + x2 / 2, y = y,
+                  text = paste(data[,"x2"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'y',
+                  x = x1 + x2 + x3 / 2, y = y,
+                  text = paste(data[,"x3"], '%'),
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(xref = 'x', yref = 'paper',
+                  x = c(23 / 2, 23 + 28 / 2, 23 + 38 + 21 / 2),
+                  y = 1.15,
+                  text = top_labels,
+                  font = list(family = 'Arial', size = 15,
+                              color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE)
+
+pit_review <- read.csv("pit_review.csv")
+review_id <- pit_review[, c(2, 8)]
+review_id$count <- 1
+
+review_1990 <- ddply(review_id, .(business_id), summarise, review = paste0(text, collapse = " "), reviewnum = sum(count))
+
+review_1990$ratings <- pit_rest$stars
+
+review_1990$price <- pit_rest$price
+
+review_na <- na.omit(review_1990)
+
+reviews <- VCorpus(DirSource("texts/"))
+
+removeNumPunct <- function(x){gsub("[^[:alpha:][:space:]]*", "", x)}
+clean_corpus <- function(corpus){
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus,content_transformer(tolower))
+  corpus <- tm_map(corpus, content_transformer(replace_symbol))
+  corpus <- tm_map(corpus, removeWords, c(stopwords("english")))
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, content_transformer(removeNumPunct))
+  return(corpus)
+}
+
+review <- clean_corpus(reviews)
+review_tdm <- TermDocumentMatrix(review)
+review_td <- tidy(review_tdm)
+
+review_td$price <- substr(review_td$document, nchar(review_td$document) - 4, nchar(review_td$document) - 4)
+new <- review_td[, -2]
+new2 <- aggregate(new['count'], by = new[c('term', 'price')], sum)
+price_matrix <- spread(new2, price, count)
+price_matrix[is.na(price_matrix)] <- 0
+rownames(price_matrix) <- price_matrix[,1]
+price_matrix2 <- price_matrix[,-1]
+price_comp <- as.matrix(price_matrix2)
+colnames(price_comp) <- c("$", "$$", "$$$", "$$$$")
+
+purple_orange <- brewer.pal(10, "PuOr")
+purple_orange <- purple_orange[-(1:2)]
+
+review_corpus <- corpus(reviews)
+FRE_review <- textstat_readability(review_corpus, measure = c('Flesch.Kincaid'))
+
+FKscore <- as.data.frame(FRE_review)
+FKscore$price <- review_na$price
+FKscore$price <- as.character(FKscore$price)
+
+box <- plot_ly(FKscore[FKscore$FRE_review <= 10, ]) %>%
+  add_trace(x = ~price, y = ~FRE_review, type = "box", color = ~price,
+            name = "parking", marker = list(symbol = "circle")) %>%
+  add_annotations(text = "Price Levels", xref="paper", yref="paper",
+                  x=1.015, xanchor="left", y=0.6, yanchor="bottom",    # Same y as legend below
+                  legendtitle=TRUE, showarrow = FALSE) %>%
+  layout(title = "<b> Review FRE scores of Restaurants </br> with Different Price Levels </b>", 
+         xaxis = list(title = "Price Levels (1 to 4 dollar-signs)"),
+         yaxis= list(title = "FRE Scores"),
+         legend=list(y=0.6, yanchor="top"))
+box
+
+pos <- read.table("C:/Users/green/Dropbox/Data Visualization/Homework/3/dictionaries/positive-words.txt", as.is = TRUE)
+neg <- read.table("C:/Users/green/Dropbox/Data Visualization/Homework/3/dictionaries/negative-words.txt", as.is = TRUE)
+
+sentiment <- function(words){ 
+  n = length(words)
+  out = rep(NA_real_, n)
+  for (i in 1:n){
+    tok <- quanteda::tokenize(words[i]) 
+    pos.count <- sum(tok[[1]]%in%pos[,1]) 
+    neg.count <- sum(tok[[1]]%in%neg[,1]) 
+    out[i] <- (pos.count - neg.count)/(pos.count+neg.count) 
+  }
+  return(out)
+}
+
+review_na$sentiment <- sentiment(review_na$review)
+review_na$price <- as.character(review_na$price)
+review_na$ratings <- as.numeric(as.character(review_na$ratings))
+
+sentiment <- review_na
+
+review_na$wordcount <- sapply(gregexpr("\\S+", review_na$review), length)
+review_na$ave_wc <- review_na$wordcount / review_na$reviewnum
+review_na$price <- as.character(review_na$price)
+review_na$ratings <- as.character(review_na$ratings)
+
+review_na <- review_na %>% 
+  arrange(desc(ratings)) %>%
+  mutate(rank_ratings = row_number()) %>%
+  arrange(desc(sentiment)) %>%
+  mutate(rank_senti = row_number()) %>%
+  mutate(diff = abs(rank_senti - rank_ratings))
+MSE <- review_na[, c("price", "diff")] %>%
+  group_by(price) %>%
+  summarise(mse = round(sd(diff), 1))
+
+sentiment$positive <- ifelse(sentiment$sentiment > 0.4, 1, 0)
+sentiment$negative <- ifelse(sentiment$sentiment < 0, 1, 0)
+sentiment$neutral <- ifelse(sentiment$sentiment < 0.4 & sentiment$sentiment > 0 , 1, 0)
+
+sentiment_count <- sentiment %>% group_by(price) %>% summarise(pos = sum(positive), neu = sum(neutral), neg = sum(negative), sum = sum(positive) + sum(neutral) + sum(negative))
+sentiment_count$posper <- sentiment_count$pos/sentiment_count$sum
+sentiment_count$neuper <- sentiment_count$neu/sentiment_count$sum
+sentiment_count$negper <- sentiment_count$neg/sentiment_count$sum
+
+x <- c('1','2','3','4')
+y1 <- 100 * round(sentiment_count$posper, 4)
+y2 <- 100 * round(sentiment_count$neuper, 4)
+y3 <- 100 * round(sentiment_count$negper, 4)
+
+data_text <- data.frame(y1, y2, y3, x)
+
+top_labels <- c('Positive', 'Neutral', 'Negative')
+
+text_1 <- plot_ly(data_text, x = ~x, y = ~y1, name = "Positive", type = 'bar', orientation = 'v',
+        marker = list(color = 'rgba(38, 24, 74, 0.8)',
+                      line = list(color = 'rgb(248, 248, 249)', width = 1))) %>%
+  add_trace(y = ~y2, name = "Neutral", marker = list(color = 'rgba(71, 58, 131, 0.8)')) %>%
+  add_trace(y = ~y3, name = "Negative", marker = list(color = 'rgba(122, 120, 168, 0.8)')) %>%
+  layout(title = "<b>Percentage of Restaurants </br> with Positive, Neutral or Negative Reviews</b>",
+        font = list(size = 12),
+        yaxis = list(title = "",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE,
+                      domain = c(0.15, 1)),
+         xaxis = list(title = "Price Levels (1 to 4 dollar-signs)",
+                      showgrid = FALSE,
+                      showline = FALSE,
+                      showticklabels = FALSE,
+                      zeroline = FALSE),
+         barmode = 'stack',
+         paper_bgcolor = 'rgb(248, 248, 255)', plot_bgcolor = 'rgb(248, 248, 255)',
+         margin = list(l = 60, r = 0, t = 160, b = 80),
+         showlegend = FALSE) %>%
+  # labeling the x-axis
+  add_annotations(yref = 'paper', xref = 'x', y = 0.09, x = x,
+                  yanchor = 'right',
+                  text = x,
+                  font = list(family = 'Arial', size = 12,
+                            color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE, align = 'right') %>%
+  # labeling the percentages of each bar (x_axis)
+  add_annotations(yref = 'y', xref = 'x',
+                  y = y1 + y2  + y3 / 2, x = x,
+                  text = paste(data_text[, "y3"], '%'),
+                  font = list(family = 'Arial', size = 10,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(yref = 'y', xref = 'x',
+                  y = y1 + y2 / 2, x = x,
+                  text = paste(data_text[, "y2"], '%'),
+                  font = list(family = 'Arial', size = 10,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(yref = 'y', xref = 'x',
+                  y = y1 /2, x = x,
+                  text = paste(data_text[, "y1"], '%'),
+                  font = list(family = 'Arial', size = 10,
+                              color = 'rgb(248, 248, 255)'),
+                  showarrow = FALSE) %>%
+  add_annotations(yref = 'y', xref = 'paper',
+                  y = c(64 / 2, 64 + 34 / 2, 64 + 34 + 2 / 2),
+                  x = -0.108,
+                  text = top_labels,
+                  font = list(family = 'Arial', size = 12,
+                              color = 'rgb(67, 67, 67)'),
+                  showarrow = FALSE)
+
+ave_rank <- review_na[, c("price", "rank_ratings", "rank_senti")] %>%
+  group_by(price) %>%
+  summarise(ave_ratings = mean(rank_ratings), ave_senti = mean(rank_senti))
+rank_df <- data.frame(matrix(NA, nrow = 8, ncol = 3))
+names(rank_df) <- c("price", "rank_ave", "rank_class")
+for (i in 1:4) {
+  rank_df[i, 1] = ave_rank[i, 1] 
+  rank_df[i+4, 1] = ave_rank[i, 1]
+  rank_df[i, 2] = ave_rank[i, 2]
+  rank_df[i+4, 2] = -ave_rank[i, 3]
+  rank_df[i, 3] = "Average Ratings"
+  rank_df[i+4, 3] = "Average Sentiment"
+}
+
+p7 <- ggplot(rank_df, aes(x = price, y = rank_ave, fill = rank_class)) +
+  geom_bar(subset = .(rank_class == "ave_ratings"), stat = "identity", width = 0.4) +  
+  geom_bar(subset = .(rank_class == "ave_senti"), stat = "identity", width = 0.4) + 
+  scale_fill_brewer(palette = "Set1", direction=-1) + coord_flip() + 
+  scale_y_continuous(breaks = seq(-1000, 1000, 200)) +  ylab("Average Ranking") + 
+  theme_tufte() + guides(fill = guide_legend("")) + xlab("Price Levels") + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), 
+        legend.position = c("bottom"), legend.direction = "horizontal",
+        plot.title=element_text(hjust = +0.5)) + 
+  ggtitle("Comparison of Average Rating Ranks and Sentiment Ranks") + 
+  theme(plot.title = element_text(face = "bold", color = "black", size = 13, hjust = 0.5))
+
+```
+
+
+Page 1 {data-navmenu="Comparison of Restaurants with Different Price Levels"}
+=====================================  
+
+Column
+-------------------------------------
+    
+### Ratings of Restaurants with Different Price Levels
+    
+```{r}
+p1
+```
+   
+Column {.tabset .tabset-fade}
+-------------------------------------
+   
+### Parking Options 
+
+```{r}
+p2
+```   
+ 
+### Noise Levels
+    
+```{r}
+p3
+```
+
+Page 2 {data-navmenu="Comparison of Restaurants with Different Price Levels"}
+=====================================  
+
+Inputs {.sidebar}
+-------------------------------------
+
+This map shows the distribution of restaurants in Pittsburgh with different pricing levels marked in different colors. Most of the restaurants are within the region of Central Business District (CBD), which is the central area in Pittsburgh. Some restaurants concentrate along the river as well. In addition, most of the restaurants are rated at a price level of 1 or 2 (dots in red or blue), while very few (statistically 12) restaurants are at a price level of 4 dollar signs (purple dots) and do not have the trend of concentration.
+
+Column
+-------------------------------------
+### Distribution of Restaurants in Pittsburgh (Clusters)  
+
+```{r}
+m2
+```  
+
+Page 3 {data-navmenu="Comparison of Restaurants with Different Price Levels"}
+====================================  
+
+Column {.tabset .tabset-fade}
+-------------------------------------
+    
+### Pittsburgh Lightrail Map
+    
+```{r}
+map_lightrail
+```  
+
+### Pittsburgh CBD Map with Subway Stations
+
+```{r}
+p6
+```  
+   
+Column 
+-------------------------------------
+   
+### Minimun Distance to Subway Stations of Restaurants with Different Price Levels in CBD
+
+```{r}
+p4
+```   
+ 
+Page 4 {data-navmenu="Comparison of Restaurants with Different Price Levels" data-orientation=rows}
+=====================================
+
+Row 
+-------------------------------------
+  
+### Proportion of Most Expensive Restaurants in Safe Neighbourhood
+
+```{r}
+gauge(round(count_safe$safe_percentage[4], 2), min = 0, max = 1, gaugeSectors(
+  success = c(0.40, 1), warning = c(0.20, 0.40), danger = c(0.0, 0.20)
+))
+```
+
+### Proportion of Expensive Restaurants in Safe Neighbourhood
+
+```{r}
+gauge(round(count_safe$safe_percentage[3], 2), min = 0, max = 1, gaugeSectors(
+  success = c(0.40, 1), warning = c(0.20, 0.40), danger = c(0.0, 0.20)
+))
+```
+
+### Proportion of Cheap Restaurants in Safe Neighbourhood
+
+```{r}
+gauge(round(count_safe$safe_percentage[2], 2), min = 0, max = 1, gaugeSectors(
+  success = c(0.40, 1), warning = c(0.20, 0.40), danger = c(0.0, 0.20)
+))
+```  
+
+### Proportion of Most Cheap Restaurants in Safe Neighbourhood
+
+```{r}
+gauge(round(count_safe$safe_percentage[1], 2), min = 0, max = 1, gaugeSectors(
+  success = c(0.40, 1), warning = c(0.20, 0.40), danger = c(0.0, 0.20)
+))
+```
+   
+Row
+-------------------------------------
+   
+### Pittsburgh Neighbourhood Safety Level
+
+```{r}
+m
+```   
+
+Page 5 {data-navmenu="Comparison of Restaurants with Different Price Levels"}
+=====================================
+
+Inputs {.sidebar}
+-------------------------------------
+
+The safety of the neighborhood, however, is not necessarily associated with the price levels of the restaurants. According to the plot above, restaurants with 3-dollar sign price level have more dangerous neighborhoods compared to other price levels, with only 19.44% of restaurants being in the safest areas, and while as many as 62.5% are in dangerous areas.
+
+column
+---------------------------------
+### Safety Level of Restaurant Location
+```{r}
+p5
+```   
+
+Page 1 {data-navmenu="Text Analysis of Restaurant Reviews"}
+=======================================  
+
+Column 
+------------------------------
+### Commonality Wordcloud
+```{r}
+set.seed(500)
+commonality.cloud(as.matrix(price_matrix2), colors =  purple_orange, max.words = 100)
+```  
+
+Column 
+------------------------------
+### Differences in Food
+```{r}
+set.seed(500)
+comparison.cloud(price_comp, max.words = 100, scale=c(0.1,2), title.size = 1)
+```  
+
+Page 2 {data-navmenu="Text Analysis of Restaurant Reviews"}
+=======================================  
+
+Column 
+------------------------------
+### Difference in FRE Scores
+```{r}
+box
+``` 
+
+Column 
+------------------------------
+### Difference in Sentiment Scores
+```{r}
+text_1
+```
+
+Page 3 {data-navmenu="Text Analysis of Restaurant Reviews" data-orientation=rows}
+===========================================================  
+
+Row 
+-------------------------------------
+### SD of Differences Between Two Ranks
+#### Cheap
+```{r}
+valueBox(MSE[1, 2], icon = "ion-pizza")
+```
+
+### SD of Differences Between Two Ranks
+#### Average
+```{r}
+valueBox(MSE[2, 2], icon = "ion-beer")
+```  
+
+### SD of Differences Between Two Ranks
+#### Expensive
+```{r}
+valueBox(MSE[3, 2], icon = "ion-coffee")
+```
+
+### SD of Differences Between Two Ranks
+#### Luxurious
+```{r}
+valueBox(MSE[4, 2], icon = "ion-wineglass")
+```  
+
+Row 
+-------------------------------------
+### Comparison of Average Rating Ranks and Sentiment Ranks
+```{r}
+p7
+```
+
+Page 1 {data-navmenu="Shiny" data-orientation=rows}
+=========================================================== 
+### Conclusion And Shiny
+Conclusion 1. Luxurious(four-dollar-sign) restaurants have better services than other restaurants in general. They provide consumers with better parking services, easier access to public transportation and quieter environments. The distribution of restaurants in Pittsburgh is generally affected by the function and location of the neighborhoods. For example, the central neighborhoods and neighborhoods along riverside attract more restaurants compared to others. In addition, food in the most expensive restaurants consists of expensive ingredients like salmon and whiskey.
+
+Conclusion 2. Text analysis shows that most reviews on yelp are more associated with the food. However, reviews with positive sentiment scores account for the smallest proportion of all reviews for luxurious restaurants. Therefore, consumers are least satisfied about food provided by luxurious restaurants among all 4 price-level restaurants. This could be due to either an average taste of the food, or a higher expectation of the taste according to its high price.
+
+Conclusion 3. Since luxurious restaurants have higher median of ratings from consumers, we can infer that consumers rate them higher not purely due to good food, but partly for services instead. It is possible that they expect more delicious food in luxurious restaurants, but only average food are provided to them, which result that they wrote down more neutral reviews about most expensive restaurants. Therefore, our hypothesis is proved, that more expensive restaurants do not necessarily provide better food.
+
+Therefore, based on our criteria, we created a shiny app to help consumers find which restaurant in Pittsburgh can provide really good food.
+https://greenorange1994.shinyapps.io/Shiny/
