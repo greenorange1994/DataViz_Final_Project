@@ -3,17 +3,17 @@ Presentation Dashboard
 ----------------------
 http://rpubs.com/greenorange1996/271894
 
-Pittsburgh Restaurants Recommendation System
+Pittsburgh Restaurants Recommendation Map
 ----------------------
 https://greenorange1994.shinyapps.io/Shiny/
 
 Team members
 ------------
-greenorange1994  
+greenorange1994: data cleaning + statistical graphs + shiny + description  
 
-Chuyue Zhang  
+Chuyue Zhang: maps + spatial analysis + description  
 
-Tia Wang  
+Tia Wang: review cleaning + text analysis + description  
 
 Abstract
 --------
